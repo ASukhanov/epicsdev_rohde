@@ -1,6 +1,6 @@
 """EPICS PVAccess server for Rohde&Schwarz oscilloscopes using epicsdev module."""
 # pylint: disable=invalid-name
-__version__= 'v1.0.0 26-02-16'# Initial version based on epicsdev_rigol_scope
+__version__ = 'v1.0.0 26-02-16'  # Initial version based on epicsdev_rigol_scope
 
 import sys
 import time
@@ -401,8 +401,9 @@ def trigger_is_detected():
         C_.exceptionCount[i] = 0
     edev.publish('trigState', trigStatus, IF_CHANGED)
 
-    # R&S scopes use different trigger states - check for completion
-    if trigStatus not in ['COMP', 'COMPLETE']:  # Adjust based on actual R&S responses
+    # R&S scopes typically return 'COMP' when acquisition is complete
+    # May also use 'STOP', 'WAIT', 'RUN', 'AUTO' depending on trigger mode and state
+    if trigStatus not in ['COMP', 'COMPLETE']:
         return False
 
     # trigger detected
@@ -449,8 +450,11 @@ def acquire_waveforms():
             ElapsedTime['query_wf'] += timer() - ts
             
             # R&S conversion: raw values typically range from -32768 to 32767
-            # Convert to voltage
-            v = waveform.astype(float) * scale / 25.0  # 25 divisions typical
+            # The scale parameter represents volts per division
+            # For a full screen of 10 divisions with 8-bit data resolution,
+            # we divide by 25 to convert from raw ADC units to divisions
+            # (this accounts for the data range and screen divisions)
+            v = waveform.astype(float) * scale / 25.0
             
             # publish
             ts = timer()
