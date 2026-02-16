@@ -25,7 +25,7 @@ def myPVDefs():
     edev.SPV(['Setup','Save latest','Save oper','Recall latest','Recall oper'],'WD'),
     {SET:set_setup}],
 ['visaResource', 'VISA resource to access the device', edev.SPV(pargs.resource,'R'), {}],
-['dateTime',    'Scope`s date & time', edev.SPV('N/A'), {}],
+['dateTime',    'Scope\'s date & time', edev.SPV('N/A'), {}],
 ['acqCount',    'Number of acquisition recorded', edev.SPV(0), {}],
 ['scopeAcqCount',  'Acquisition count of the scope', edev.SPV(0), {}],
 ['lostTrigs',   'Number of triggers lost',  edev.SPV(0), {}],
@@ -407,8 +407,8 @@ def trigger_is_detected():
 
     # trigger detected
     C_.numacq += 1
-    C_.trigtime = time.time()
-    ElapsedTime['trigger_detection'] = round(ts - timer(),6)
+    C_.trigTime = time.time()
+    ElapsedTime['trigger_detection'] = round(timer() - ts, 6)
     edev.printv(f'Trigger detected {C_.numacq}')
     return True
 
@@ -417,7 +417,7 @@ def acquire_waveforms():
     """Acquire waveforms from the device and publish them."""
     edev.printv(f'>acquire_waveform for channels {C_.channelsTriggered}')
     edev.publish('acqCount', edev.pvv('acqCount') + 1, t=C_.trigTime)
-    ElapsedTime['acquire_wf'] = timer()
+    start_time = timer()
     ElapsedTime['preamble'] = 0.
     ElapsedTime['query_wf'] = 0.
     ElapsedTime['publish_wf'] = 0.
@@ -439,14 +439,14 @@ def acquire_waveforms():
             scale = float(scale_offset[0])
             offset_display = float(scale_offset[1])
             
-            ElapsedTime['preamble'] -= timer() - ts
+            ElapsedTime['preamble'] += timer() - ts
             
             # Acquire the waveform data
             ts = timer()
             operation = 'getting waveform data'
             waveform = C_.scope.query_binary_values(f'CHANnel{ch}:DATA?',
                 datatype='h', container=np.array)  # signed 16-bit
-            ElapsedTime['query_wf'] -= timer() - ts
+            ElapsedTime['query_wf'] += timer() - ts
             
             # R&S conversion: raw values typically range from -32768 to 32767
             # Convert to voltage
@@ -456,20 +456,20 @@ def acquire_waveforms():
             ts = timer()
             operation = 'publishing'
             edev.publish(f'c{ch:02}Waveform', v, t=C_.trigTime)
-            edev.publish(f'c{ch:02}Peak2Peak', np.ptp(v), t = C_.trigtime)
-            edev.publish(f'c{ch:02}Mean', v.mean(), t = C_.trigtime)
+            edev.publish(f'c{ch:02}Peak2Peak', np.ptp(v), t = C_.trigTime)
+            edev.publish(f'c{ch:02}Mean', v.mean(), t = C_.trigTime)
         except visa.errors.VisaIOError as e:
             edev.printe(f'Visa exception in {operation} for {ch}:{e}')
             break
         except Exception as e:
             edev.printe(f'Exception in {operation} of channel {ch}: {e}')
 
-        ElapsedTime['publish_wf'] -= timer() - ts
+        ElapsedTime['publish_wf'] += timer() - ts
     
     # Restart acquisition
     C_.scope.write(':RUN')
     wait_for_scopeReady()
-    ElapsedTime['acquire_wf'] -= timer()
+    ElapsedTime['acquire_wf'] = timer() - start_time
     edev.printvv(f'elapsedTime: {ElapsedTime}')
 
 def make_readSettingQuery():
